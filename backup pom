@@ -1,0 +1,42 @@
+import pika
+
+print("🐍 Python worker is waiting for tasks...")
+
+
+def callback(ch, method, properties, body):
+    print("📩 Received:", body.decode())
+
+# connection = pika.BlockingConnection(
+#     pika.ConnectionParameters(host='rabbitmq')
+# )
+connection = None
+x = 1
+for _ in range(20):
+    try:
+        connection = pika.BlockingConnection(
+            pika.ConnectionParameters(
+                host='localhost',
+                credentials=pika.PlainCredentials('guest', 'guest')
+            )
+
+        )
+        break
+    except pika.exceptions.AMQPConnectionError:
+        print("RabbitMQ not ready, retrying...")
+
+
+if connection is None:
+    raise ConnectionError("RabbitMQ not available after 20 retries.")
+
+channel = connection.channel()
+
+channel.queue_declare(queue='task-queue')
+
+channel.basic_consume(
+    queue='task-queue',
+    on_message_callback=callback,
+    auto_ack=True
+)
+
+print('🐍 Waiting for messages...')
+channel.start_consuming()
