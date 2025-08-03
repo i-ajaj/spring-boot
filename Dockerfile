@@ -1,7 +1,7 @@
 # Stage 1: Build the application using Maven
 FROM maven:3.9.6-eclipse-temurin-17 AS build
 
-# Set working directory inside the container
+# Set working directory inside the container .
 WORKDIR /app
 
 # Copy only pom.xml and download dependencies (for cache efficiency)
