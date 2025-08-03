@@ -11,7 +11,7 @@ pipeline {
                 echo "Deploying"
             }
         }
-
+    }
     post {
         always {
             echo "Cleaning up containers..."
