@@ -1,6 +1,8 @@
+paramters
+
 pipeline {
     agent any
-
+    params.
     environment {
         COMPOSE_PROJECT_NAME = 'myapp'
     }
@@ -8,7 +10,7 @@ pipeline {
     stages {
         stage('Deployment') {
             steps {
-                sh ' docker compose up -d'
+                sh 'docker ps'
             }
         }
     }
