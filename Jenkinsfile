@@ -1,6 +1,5 @@
 pipeline {
     agent any
-    params.
     environment {
         COMPOSE_PROJECT_NAME = 'myapp'
     }
