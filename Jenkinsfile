@@ -11,7 +11,7 @@ pipeline {
         RABBITMQ_IMAGE = "rabbitmq:3-management"
         SPRING_NET = "spring-net"
         PGDATA_VOL = "pgdata"
-        SHARED_VOL = "shared-data"
+        SHARED_VOL = "sred-data"
     }
 
     stages {
@@ -22,7 +22,7 @@ pipeline {
                         return currentBuild.getBuildCauses()
                             .any { cause -> cause.toString().contains("UserIdCause") }
                     }
-                    if (isManualBuild(){
+                    if (isManualBuild()){
                         echo "Manual build detected"
                         echo "Skipped repos cloning"
                         return
