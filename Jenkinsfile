@@ -18,6 +18,13 @@ pipeline {
         stage('Cloning Repos') {
             steps {
                 script {
+                    def isManual = currentBuild.rawBuild.getCause(hudson.model.Cause$UserIdCause) != null
+                    if (isManual){
+                        echo "Manual build detected"
+                        echo "Skipped repos cloning"
+                        return
+                    }
+
                     echo "Webhook triggered by repo: ${env.REPO_NAME}"
                     if (env.REPO_NAME == 'spring-boot') {
                         dir('spring-boot') {
