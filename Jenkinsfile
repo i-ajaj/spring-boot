@@ -18,12 +18,20 @@ pipeline {
         stage('Clone Repos') {
             steps {
                 script {
-                    if (!fileExists('spring-boot/.git')) {
+                    echo "Webhook triggered by repo: ${env.REPO_NAME}"
+                    if (env.REPO_NAME == 'spring-boot') {
                         dir('spring-boot') {
                             git url: "${SPRING_REPO}", branch: 'main'
                         }
-                    }
-                    if (!fileExists('python-worker/.git')) {
+                    } else if (env.REPO_NAME == 'python-worker') {
+                        dir('python-worker') {
+                            git url: "${WORKER_REPO}", branch: 'main'
+                        }
+                    } else {
+                        echo "Unknown repo, cloning both as fallback"
+                        dir('spring-boot') {
+                            git url: "${SPRING_REPO}", branch: 'main'
+                        }
                         dir('python-worker') {
                             git url: "${WORKER_REPO}", branch: 'main'
                         }
