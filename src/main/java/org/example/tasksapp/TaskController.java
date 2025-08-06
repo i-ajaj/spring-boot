@@ -35,7 +35,7 @@ public class TaskController {
     @PostMapping
     public Task createTask(@RequestBody Task task) {
         Task savedTask = repository.save(task);
-        System.out.println("Created Task: " + savedTask);
+        System.out.println("Created New Task: " + savedTask);
         rabbitTemplate.convertAndSend("task-queue", "New task created: " + savedTask.getName());
         return savedTask;
     }
