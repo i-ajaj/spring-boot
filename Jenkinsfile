@@ -1,7 +1,5 @@
 pipeline {
     agent any
-
-
     environment {
         SPRING_REPO = "https://github.com/i-ajaj/spring-boot.git"
         WORKER_REPO = "https://github.com/i-ajaj/python-worker.git"
