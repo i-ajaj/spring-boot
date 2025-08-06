@@ -15,7 +15,7 @@ pipeline {
     }
 
     stages {
-        stage('Clone Repos') {
+        stage('Cloning Repos') {
             steps {
                 script {
                     echo "Webhook triggered by repo: ${env.REPO_NAME}"
