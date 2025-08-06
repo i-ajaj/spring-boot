@@ -18,8 +18,11 @@ pipeline {
         stage('Cloning Repos') {
             steps {
                 script {
-                    def isManual = currentBuild.rawBuild.getCause(hudson.model.Cause$UserIdCause) != null
-                    if (isManual){
+                    def isManualBuild() {
+                        return currentBuild.getBuildCauses()
+                            .any { cause -> cause.toString().contains("UserIdCause") }
+                    }
+                    if (isManualBuild(){
                         echo "Manual build detected"
                         echo "Skipped repos cloning"
                         return
