@@ -18,11 +18,10 @@ pipeline {
         stage('Cloning Repos') {
             steps {
                 script {
-                    def isManualBuild() {
-                        return currentBuild.getBuildCauses()
-                            .any { cause -> cause.toString().contains("UserIdCause") }
-                    }
-                    if (isManualBuild()){
+                    def isManual = currentBuild.getBuildCauses()
+                        .any { cause -> cause.toString().contains("UserIdCause") }
+
+                    if (isManual) {
                         echo "Manual build detected"
                         echo "Skipped repos cloning"
                         return
