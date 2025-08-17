@@ -151,7 +151,7 @@ pipeline {
         success {
             echo "✅ All containers are up and running."
             sh "docker ps"
-        }
+        } 
         failure {
             echo "❌ Build or run failure. Showing recent container logs..."
             sh '''
