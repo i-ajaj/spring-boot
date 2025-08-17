@@ -107,7 +107,7 @@ pipeline {
                         --name spring-app \
                         --network ${SPRING_NET} \
                         -v ${SHARED_VOL}:/app/shared \
-                        -p 8081:8081 \
+                        -p 8081:8080 \
                         -e SPRING_PROFILES_ACTIVE=default \
                         -e SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-container:5432/tasks \
                         -e SPRING_DATASOURCE_USERNAME=postgres \
