@@ -22,7 +22,7 @@ pipeline {
                     if (isManual) {
                         echo "Manual build detected"
                         echo "Skipped repos cloning"
-                        return
+                        //return
                     }
 
                     echo "Webhook triggered by repo: ${env.REPO_NAME}"
