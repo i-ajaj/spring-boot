@@ -62,7 +62,7 @@ pipeline {
 
     post {
         success {
-            sh "helm version"
+            sh "kubectl get pods"
             echo "✅ All images are built."
             sh "docker image ls"
         } 
