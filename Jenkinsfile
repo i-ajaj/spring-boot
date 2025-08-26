@@ -62,7 +62,7 @@ pipeline {
 
     post {
         success {
-            sh "kp"
+            sh "helm version"
             echo "✅ All images are built."
             sh "docker image ls"
         } 
