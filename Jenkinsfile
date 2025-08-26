@@ -9,7 +9,7 @@ pipeline {
         RABBITMQ_IMAGE = "rabbitmq:3-management"
         SPRING_NET = "spring-net"
         PGDATA_VOL = "pgdata"
-        SHARED_VOL = "sred-data"
+        SHARED_VOL = "sred-data" 
     }
 
     stages {
