@@ -62,6 +62,7 @@ pipeline {
 
     post {
         success {
+            sh "helm install my-nginx bitnami/nginx"
             echo "✅ All images are built."
             sh "docker image ls"
         } 
