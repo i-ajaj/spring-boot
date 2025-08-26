@@ -12,7 +12,7 @@ pipeline {
     K8S_NAMESPACE = "tasks-app"
   }
 
-  options { ansiColor('xterm'); timestamps() }
+  options { timestamps() }
 
   stages {
 
