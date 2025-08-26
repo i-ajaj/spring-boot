@@ -17,12 +17,6 @@ pipeline {
     KUBECONFIG = "/home/azureuser/.kube/config"
   }
 
-  options {
-    // Fail fast on shell errors
-    ansiColor('xterm')
-    timestamps()
-  }
-
   stages {
     stage('Cloning Repos') {
       steps {
