@@ -86,7 +86,6 @@ docker image ls | grep -E "${SPRING_IMAGE}|${WORKER_IMAGE}" || true
 
     stage('Helm Deploy (versioned)') {
       steps {
-        withCredentials([file(credentialsId: 'kubeconfig-tasks', variable: 'KUBECFG')]) {
           sh '''#!/usr/bin/env bash
 set -euo pipefail
 export KUBECONFIG="${KUBECFG}"
@@ -119,20 +118,19 @@ helm list -n ${K8S_NAMESPACE}
 echo "=== Pods ==="
 kubectl get pods -n ${K8S_NAMESPACE} -o wide
           '''
-        }
+        
       }
     }
   }
 
   post {
     failure {
-      withCredentials([file(credentialsId: 'kubeconfig-tasks', variable: 'KUBECFG')]) {
         sh '''#!/usr/bin/env bash
 set -e
 export KUBECONFIG="${KUBECFG}"
 kubectl get pods -A || true
         '''
-      }
+      
     }
   }
 }
