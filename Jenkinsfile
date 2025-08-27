@@ -89,12 +89,6 @@ docker image ls | grep -E "${SPRING_IMAGE}|${WORKER_IMAGE}" || true
           sh '''#!/usr/bin/env bash
 set -euo pipefail
 
-kubectl config current-context
-kubectl cluster-info
-
-# Ensure namespace exists
-kubectl get ns ${K8S_NAMESPACE} >/dev/null 2>&1 || kubectl create ns ${K8S_NAMESPACE}
-
 # Upgrade/Install spring-app
 helm upgrade --install spring-app ./charts/spring-app \
   --namespace ${K8S_NAMESPACE} \
