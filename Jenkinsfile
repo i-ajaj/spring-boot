@@ -119,9 +119,10 @@ export NO_PROXY="${NO_PROXY_ALL}"
 
 
 echo "== Looking for Helm charts =="
+pwd
 echo "CHARTS_DIR=${CHARTS_ROOT}"
 
-if [ -d "${CHARTS_ROOT}/spring-app" ] && [ -d "${CHARTS_ROOT}/python-worker" ]; then
+if [ -d "${CHARTS_ROOT%/}/spring-app" ] && [ -d "${CHARTS_ROOT%/}/python-worker" ]; then
   echo "Charts found. Deploying with Helm..."
 
   helm upgrade --install spring-app ${CHARTS_ROOT}/spring-app \
