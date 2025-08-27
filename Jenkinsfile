@@ -88,7 +88,6 @@ docker image ls | grep -E "${SPRING_IMAGE}|${WORKER_IMAGE}" || true
       steps {
           sh '''#!/usr/bin/env bash
 set -euo pipefail
-export KUBECONFIG="${KUBECFG}"
 
 kubectl config current-context
 kubectl cluster-info
@@ -127,7 +126,6 @@ kubectl get pods -n ${K8S_NAMESPACE} -o wide
     failure {
         sh '''#!/usr/bin/env bash
 set -e
-export KUBECONFIG="${KUBECFG}"
 kubectl get pods -A || true
         '''
       
