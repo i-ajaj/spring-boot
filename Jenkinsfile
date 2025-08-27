@@ -13,6 +13,7 @@ pipeline {
 
     // A workspace-local kubeconfig path
     KUBECONFIG_PATH = "${env.WORKSPACE}/.kube/config"
+    CHARTS_ROOT = "/home/azureuser/charts"
 
     // Stop helm/kubectl from going through Jenkins/http proxy
     NO_PROXY_ALL = "localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,.svc,.cluster.local"
@@ -116,31 +117,29 @@ set -euo pipefail
 unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
 export NO_PROXY="${NO_PROXY_ALL}"
 
-SPRING_CHART_DIR="${WORKSPACE}/spring-boot/charts/spring-app"
-WORKER_CHART_DIR="${WORKSPACE}/python-worker/charts/python-worker"
 
 echo "== Looking for Helm charts =="
-echo "SPRING_CHART_DIR=${SPRING_CHART_DIR}"
-echo "WORKER_CHART_DIR=${WORKER_CHART_DIR}"
+echo "CHARTS_DIR=${CHARTS_ROOT}"
 
-if [ -d "${SPRING_CHART_DIR}" ] && [ -d "${WORKER_CHART_DIR}" ]; then
+if [ -d "${CHARTS_ROOT}/spring-app" ] && [ -d "${CHARTS_ROOT}/python-worker" ]; then
   echo "Charts found. Deploying with Helm..."
 
-  helm upgrade --install spring-app "${SPRING_CHART_DIR}" \
+  helm upgrade --install spring-app ${CHARTS_ROOT}/spring-app \
     --kubeconfig "${KUBECONFIG_PATH}" \
     --namespace ${K8S_NAMESPACE} \
     --set image.repository=${SPRING_IMAGE} \
     --set image.tag=${APP_VERSION} \
     --set image.pullPolicy=IfNotPresent \
     --wait --timeout 5m
-
-  helm upgrade --install python-worker "${WORKER_CHART_DIR}" \
+  
+  helm upgrade --install python-worker ${CHARTS_ROOT}/python-worker \
     --kubeconfig "${KUBECONFIG_PATH}" \
     --namespace ${K8S_NAMESPACE} \
     --set image.repository=${WORKER_IMAGE} \
     --set image.tag=${APP_VERSION} \
     --set image.pullPolicy=IfNotPresent \
     --wait --timeout 5m
+
 
 else
   echo "Charts NOT found. Falling back to kubectl set image on existing Deployments..."
