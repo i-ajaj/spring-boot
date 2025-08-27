@@ -8,8 +8,14 @@ pipeline {
     SPRING_IMAGE = "spring-boot-app"
     WORKER_IMAGE = "python-worker-app"
 
-    KIND_CLUSTER = "tasks"
+    KIND_CLUSTER  = "tasks"
     K8S_NAMESPACE = "tasks-app"
+
+    // A workspace-local kubeconfig path
+    KUBECONFIG_PATH = "${env.WORKSPACE}/.kube/config"
+
+    // Stop helm/kubectl from going through Jenkins/http proxy
+    NO_PROXY_ALL = "localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,.svc,.cluster.local"
   }
 
   options { timestamps() }
@@ -21,13 +27,16 @@ pipeline {
         sh '''#!/usr/bin/env bash
 set -euo pipefail
 echo "== Tool versions =="
-command -v docker || { echo "docker not found"; exit 1; }
-command -v kind   || { echo "kind not found"; exit 1; }
-command -v kubectl|| { echo "kubectl not found"; exit 1; }
-command -v helm   || { echo "helm not found"; exit 1; }
+command -v docker
+command -v kind
+command -v kubectl
+command -v helm
 docker version --format '{{.Server.Version}}' || true
 kind get clusters || true
 helm version || true
+
+echo "== Current proxy-related env =="
+env | egrep -i '(^|_)http_proxy=|(^|_)https_proxy=|(^|_)no_proxy=' || true
         '''
       }
     }
@@ -38,16 +47,8 @@ helm version || true
           def isManual = currentBuild.getBuildCauses().any { it.toString().contains("UserIdCause") }
           echo isManual ? "Manual build detected — cloning both repos" : "Webhook triggered by repo: ${env.REPO_NAME}"
 
-          if (env.REPO_NAME == 'spring-boot') {
-            dir('spring-boot')    { git url: "${SPRING_REPO}", branch: 'main' }
-            dir('python-worker')  { git url: "${WORKER_REPO}", branch: 'main' }
-          } else if (env.REPO_NAME == 'python-worker') {
-            dir('python-worker')  { git url: "${WORKER_REPO}", branch: 'main' }
-            dir('spring-boot')    { git url: "${SPRING_REPO}", branch: 'main' }
-          } else {
-            dir('spring-boot')    { git url: "${SPRING_REPO}", branch: 'main' }
-            dir('python-worker')  { git url: "${WORKER_REPO}", branch: 'main' }
-          }
+          dir('spring-boot')   { git url: "${SPRING_REPO}",  branch: 'main' }
+          dir('python-worker') { git url: "${WORKER_REPO}",  branch: 'main' }
         }
       }
     }
@@ -67,49 +68,90 @@ docker image ls | grep -E "${SPRING_IMAGE}|${WORKER_IMAGE}" || true
 
     stage('Tag & Load into kind') {
       steps {
-        script { env.APP_VERSION = "${env.BUILD_NUMBER}" } // or a git sha
+        script { env.APP_VERSION = "${env.BUILD_NUMBER}" }
         sh '''#!/usr/bin/env bash
 set -euo pipefail
 echo "Using version: ${APP_VERSION}"
-
 docker tag ${SPRING_IMAGE}:latest ${SPRING_IMAGE}:${APP_VERSION}
 docker tag ${WORKER_IMAGE}:latest ${WORKER_IMAGE}:${APP_VERSION}
-
-# Load into kind nodes (no registry needed)
 kind load docker-image ${SPRING_IMAGE}:${APP_VERSION} --name ${KIND_CLUSTER}
 kind load docker-image ${WORKER_IMAGE}:${APP_VERSION} --name ${KIND_CLUSTER}
-
 docker image ls | grep -E "${SPRING_IMAGE}|${WORKER_IMAGE}" || true
+        '''
+      }
+    }
+
+    // NEW: make a kubeconfig and verify connectivity with proxies disabled
+    stage('Kubeconfig & Cluster Check') {
+      steps {
+        sh '''#!/usr/bin/env bash
+set -euo pipefail
+
+mkdir -p "$(dirname "${KUBECONFIG_PATH}")"
+kind get kubeconfig --name "${KIND_CLUSTER}" > "${KUBECONFIG_PATH}"
+chmod 600 "${KUBECONFIG_PATH}"
+
+# Nuke all proxies for this shell, and set a broad NO_PROXY
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+export NO_PROXY="${NO_PROXY_ALL}"
+
+echo "== kubectl context =="
+kubectl --kubeconfig="${KUBECONFIG_PATH}" config current-context || true
+kubectl --kubeconfig="${KUBECONFIG_PATH}" cluster-info
+kubectl --kubeconfig="${KUBECONFIG_PATH}" get nodes -o wide
+
+# Ensure namespace exists
+kubectl --kubeconfig="${KUBECONFIG_PATH}" create namespace "${K8S_NAMESPACE}" --dry-run=client -o yaml | \
+  kubectl --kubeconfig="${KUBECONFIG_PATH}" apply -f -
         '''
       }
     }
 
     stage('Helm Deploy (versioned)') {
       steps {
-        withCredentials([file(credentialsId: 'kubeconfig-tasks', variable: 'KUBECFG')]) {
-          sh '''#!/usr/bin/env bash
+        sh '''#!/usr/bin/env bash
 set -euo pipefail
-export KUBECONFIG="${KUBECFG}"
-@@ -119,20 +118,19 @@
+
+# Disable proxies for helm/kubectl
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+export NO_PROXY="${NO_PROXY_ALL}"
+
+# Upgrade/Install spring-app
+helm upgrade --install spring-app ./charts/spring-app \
+  --kubeconfig "${KUBECONFIG_PATH}" \
+  --namespace ${K8S_NAMESPACE} \
+  --set image.repository=${SPRING_IMAGE} \
+  --set image.tag=${APP_VERSION} \
+  --set image.pullPolicy=IfNotPresent \
+  --wait --timeout 5m
+
+# Upgrade/Install python-worker
+helm upgrade --install python-worker ./charts/python-worker \
+  --kubeconfig "${KUBECONFIG_PATH}" \
+  --namespace ${K8S_NAMESPACE} \
+  --set image.repository=${WORKER_IMAGE} \
+  --set image.tag=${APP_VERSION} \
+  --set image.pullPolicy=IfNotPresent \
+  --wait --timeout 5m
+
+echo "=== Helm Releases ==="
+helm list -n ${K8S_NAMESPACE} --kubeconfig "${KUBECONFIG_PATH}"
+
 echo "=== Pods ==="
-kubectl get pods -n ${K8S_NAMESPACE} -o wide
-          '''
-        }
-        
+kubectl get pods -n ${K8S_NAMESPACE} -o wide --kubeconfig "${KUBECONFIG_PATH}"
+        '''
       }
     }
   }
 
   post {
     failure {
-      withCredentials([file(credentialsId: 'kubeconfig-tasks', variable: 'KUBECFG')]) {
-        sh '''#!/usr/bin/env bash
+      sh '''#!/usr/bin/env bash
 set -e
-export KUBECONFIG="${KUBECFG}"
-kubectl get pods -A || true
-        '''
-      }
-      
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
+export NO_PROXY="${NO_PROXY_ALL}"
+kubectl get pods -A --kubeconfig "${KUBECONFIG_PATH}" || true
+      '''
     }
   }
 }
