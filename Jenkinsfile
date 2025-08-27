@@ -107,41 +107,72 @@ kubectl --kubeconfig="${KUBECONFIG_PATH}" create namespace "${K8S_NAMESPACE}" --
       }
     }
 
-    stage('Helm Deploy (versioned)') {
-      steps {
-        sh '''#!/usr/bin/env bash
+stage('Helm Deploy (versioned)') {
+  steps {
+    sh '''#!/usr/bin/env bash
 set -euo pipefail
 
-# Disable proxies for helm/kubectl
 unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY
 export NO_PROXY="${NO_PROXY_ALL}"
 
-# Upgrade/Install spring-app
-helm upgrade --install spring-app ./charts/spring-app \
-  --kubeconfig "${KUBECONFIG_PATH}" \
-  --namespace ${K8S_NAMESPACE} \
-  --set image.repository=${SPRING_IMAGE} \
-  --set image.tag=${APP_VERSION} \
-  --set image.pullPolicy=IfNotPresent \
-  --wait --timeout 5m
+SPRING_CHART_DIR="${WORKSPACE}/spring-boot/charts/spring-app"
+WORKER_CHART_DIR="${WORKSPACE}/python-worker/charts/python-worker"
 
-# Upgrade/Install python-worker
-helm upgrade --install python-worker ./charts/python-worker \
-  --kubeconfig "${KUBECONFIG_PATH}" \
-  --namespace ${K8S_NAMESPACE} \
-  --set image.repository=${WORKER_IMAGE} \
-  --set image.tag=${APP_VERSION} \
-  --set image.pullPolicy=IfNotPresent \
-  --wait --timeout 5m
+echo "== Looking for Helm charts =="
+echo "SPRING_CHART_DIR=${SPRING_CHART_DIR}"
+echo "WORKER_CHART_DIR=${WORKER_CHART_DIR}"
 
-echo "=== Helm Releases ==="
-helm list -n ${K8S_NAMESPACE} --kubeconfig "${KUBECONFIG_PATH}"
+if [ -d "${SPRING_CHART_DIR}" ] && [ -d "${WORKER_CHART_DIR}" ]; then
+  echo "Charts found. Deploying with Helm..."
+
+  helm upgrade --install spring-app "${SPRING_CHART_DIR}" \
+    --kubeconfig "${KUBECONFIG_PATH}" \
+    --namespace ${K8S_NAMESPACE} \
+    --set image.repository=${SPRING_IMAGE} \
+    --set image.tag=${APP_VERSION} \
+    --set image.pullPolicy=IfNotPresent \
+    --wait --timeout 5m
+
+  helm upgrade --install python-worker "${WORKER_CHART_DIR}" \
+    --kubeconfig "${KUBECONFIG_PATH}" \
+    --namespace ${K8S_NAMESPACE} \
+    --set image.repository=${WORKER_IMAGE} \
+    --set image.tag=${APP_VERSION} \
+    --set image.pullPolicy=IfNotPresent \
+    --wait --timeout 5m
+
+else
+  echo "Charts NOT found. Falling back to kubectl set image on existing Deployments..."
+
+  # Make sure the namespace exists
+  kubectl --kubeconfig "${KUBECONFIG_PATH}" \
+    create namespace "${K8S_NAMESPACE}" --dry-run=client -o yaml | \
+    kubectl --kubeconfig "${KUBECONFIG_PATH}" apply -f -
+
+  # Roll the images on existing deployments (which you already have)
+  kubectl --kubeconfig "${KUBECONFIG_PATH}" -n ${K8S_NAMESPACE} \
+    set image deployment/spring-app spring-app=${SPRING_IMAGE}:${APP_VERSION}
+
+  kubectl --kubeconfig "${KUBECONFIG_PATH}" -n ${K8S_NAMESPACE} \
+    set image deployment/python-worker python-worker=${WORKER_IMAGE}:${APP_VERSION}
+
+  # Wait for rollouts to complete
+  kubectl --kubeconfig "${KUBECONFIG_PATH}" -n ${K8S_NAMESPACE} \
+    rollout status deployment/spring-app --timeout=300s
+
+  kubectl --kubeconfig "${KUBECONFIG_PATH}" -n ${K8S_NAMESPACE} \
+    rollout status deployment/python-worker --timeout=300s
+fi
+
+echo "=== Helm Releases (if any) ==="
+helm list -n ${K8S_NAMESPACE} --kubeconfig "${KUBECONFIG_PATH}" || true
 
 echo "=== Pods ==="
 kubectl get pods -n ${K8S_NAMESPACE} -o wide --kubeconfig "${KUBECONFIG_PATH}"
-        '''
-      }
-    }
+'''
+  }
+}
+
   }
 
   post {
