@@ -86,31 +86,15 @@ docker image ls | grep -E "${SPRING_IMAGE}|${WORKER_IMAGE}" || true
 
     stage('Helm Deploy (versioned)') {
       steps {
+        withCredentials([file(credentialsId: 'kubeconfig-tasks', variable: 'KUBECFG')]) {
           sh '''#!/usr/bin/env bash
 set -euo pipefail
-
-# Upgrade/Install spring-app
-helm upgrade --install spring-app ./charts/spring-app \
-  --namespace ${K8S_NAMESPACE} \
-  --set image.repository=${SPRING_IMAGE} \
-  --set image.tag=${APP_VERSION} \
-  --set image.pullPolicy=IfNotPresent \
-  --wait --timeout 5m
-
-# Upgrade/Install python-worker
-helm upgrade --install python-worker ./charts/python-worker \
-  --namespace ${K8S_NAMESPACE} \
-  --set image.repository=${WORKER_IMAGE} \
-  --set image.tag=${APP_VERSION} \
-  --set image.pullPolicy=IfNotPresent \
-  --wait --timeout 5m
-
-echo "=== Helm Releases ==="
-helm list -n ${K8S_NAMESPACE}
-
+export KUBECONFIG="${KUBECFG}"
+@@ -119,20 +118,19 @@
 echo "=== Pods ==="
 kubectl get pods -n ${K8S_NAMESPACE} -o wide
           '''
+        }
         
       }
     }
@@ -118,10 +102,13 @@ kubectl get pods -n ${K8S_NAMESPACE} -o wide
 
   post {
     failure {
+      withCredentials([file(credentialsId: 'kubeconfig-tasks', variable: 'KUBECFG')]) {
         sh '''#!/usr/bin/env bash
 set -e
+export KUBECONFIG="${KUBECFG}"
 kubectl get pods -A || true
         '''
+      }
       
     }
   }
