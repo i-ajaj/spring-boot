@@ -27,6 +27,7 @@ pipeline {
         sh '''#!/usr/bin/env bash
 set -euo pipefail
 echo "== Tool versions =="
+ls
 command -v docker
 command -v kind
 command -v kubectl
