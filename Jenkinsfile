@@ -177,6 +177,7 @@ kubectl get pods -n ${K8S_NAMESPACE} -o wide --kubeconfig "${KUBECONFIG_PATH}"
   }
 
   post {
+    cleanWs()
     failure {
       sh '''#!/usr/bin/env bash
 set -e
