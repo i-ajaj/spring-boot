@@ -8,7 +8,7 @@ pipeline {
     SPRING_IMAGE = "spring-boot-app"
     WORKER_IMAGE = "python-worker-app"
 
-    KIND_CLUSTER  = "tasks"
+    KIND_CLUSTER  = "tasks" 
     K8S_NAMESPACE = "tasks-app"
 
     // A workspace-local kubeconfig path
