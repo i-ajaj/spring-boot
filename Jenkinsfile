@@ -140,29 +140,6 @@ if [ -d "${CHARTS_ROOT%/}/spring-app" ] && [ -d "${CHARTS_ROOT%/}/python-worker"
     --set image.tag=${APP_VERSION} \
     --set image.pullPolicy=IfNotPresent \
     --wait --timeout 5m
-
-
-else
-  echo "Charts NOT found. Falling back to kubectl set image on existing Deployments..."
-
-  # Make sure the namespace exists
-  kubectl --kubeconfig "${KUBECONFIG_PATH}" \
-    create namespace "${K8S_NAMESPACE}" --dry-run=client -o yaml | \
-    kubectl --kubeconfig "${KUBECONFIG_PATH}" apply -f -
-
-  # Roll the images on existing deployments (which you already have)
-  kubectl --kubeconfig "${KUBECONFIG_PATH}" -n ${K8S_NAMESPACE} \
-    set image deployment/spring-app spring-app=${SPRING_IMAGE}:${APP_VERSION}
-
-  kubectl --kubeconfig "${KUBECONFIG_PATH}" -n ${K8S_NAMESPACE} \
-    set image deployment/python-worker python-worker=${WORKER_IMAGE}:${APP_VERSION}
-
-  # Wait for rollouts to complete
-  kubectl --kubeconfig "${KUBECONFIG_PATH}" -n ${K8S_NAMESPACE} \
-    rollout status deployment/spring-app --timeout=300s
-
-  kubectl --kubeconfig "${KUBECONFIG_PATH}" -n ${K8S_NAMESPACE} \
-    rollout status deployment/python-worker --timeout=300s
 fi
 
 echo "=== Helm Releases (if any) ==="
