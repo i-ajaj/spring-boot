@@ -49,12 +49,30 @@ env | egrep -i '(^|_)http_proxy=|(^|_)https_proxy=|(^|_)no_proxy=' || true
           def isManual = currentBuild.getBuildCauses().any { it.toString().contains("UserIdCause") }
           echo isManual ? "Manual build detected — cloning both repos" : "Webhook triggered by repo: ${env.REPO_NAME}"
 
-          
-          dir('spring-boot')   {
-            sh "git clone --depth=1 --branch=main ${SPRING_REPO} ."
+          dir('spring-boot') {
+              if (fileExists('.git')) {
+                  echo "Fetching only changes from sprin-boot repo..."
+                  sh '''
+                    git fetch origin main
+                    git reset --hard origin/main
+                  '''
+              } else {
+                  echo "Shallow cloning spring-boot..."
+                  sh 'git clone --depth=1 --branch=main ${SPRING_REPO} .'
+              }
           }
+
           dir('python-worker') {
-            sh "git clone --depth=1 --branch=main ${WORKER_REPO} ."
+              if (fileExists('.git')) {
+                  echo "Fetching only changes from python-worker repo..."
+                  sh '''
+                    git fetch origin main
+                    git reset --hard origin/main
+                  '''
+              } else {
+                  echo "Shallow cloning python-worker..."
+                  sh 'git clone --depth=1 --branch=main ${WORKER_REPO} .'
+              }
           }
         }
       }
