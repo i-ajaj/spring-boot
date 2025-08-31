@@ -149,11 +149,13 @@ stage('Helm Deploy (versioned)') {
         echo "Charts found. Deploying with Helm..."
       
         helm upgrade --install spring-app ${CHARTS_ROOT}/spring-app \
+          --kubeconfig "${KUBECONFIG_PATH}" \
           --set image.repository=${SPRING_IMAGE} \
           --set image.tag=${APP_VERSION} \
           --wait --timeout 5m
         
         helm upgrade --install python-worker ${CHARTS_ROOT}/python-worker \
+          --kubeconfig "${KUBECONFIG_PATH}" \
           --set image.repository=${WORKER_IMAGE} \
           --set image.tag=${APP_VERSION} \
           --wait --timeout 5m
