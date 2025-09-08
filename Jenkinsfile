@@ -109,7 +109,7 @@ pipeline {
 
     stage('Argo CD Deploy') {
       environment {
-        ARGOCD_LOCAL_PORT = "8085"                // use 8085 (not Jenkins 8080)
+        ARGOCD_LOCAL_PORT = "8085"                 // use 8085
         PF_DIR            = "${env.WORKSPACE}/.pf" // per-build writable folder
       }
       steps {
@@ -127,15 +127,15 @@ pipeline {
             exit 1
           fi
 
-          echo "== Start port-forward (svc/argocd-server 80 -> localhost:${ARGOCD_LOCAL_PORT}) =="
+          echo "== Start port-forward (svc/argocd-server 443 -> localhost:${ARGOCD_LOCAL_PORT}) =="
           # Clean up any prior pf from THIS build (if any)
           if [ -f "${PF_DIR}/argocd-pf.pid" ]; then
             kill "$(cat "${PF_DIR}/argocd-pf.pid")" 2>/dev/null || true
             rm -f "${PF_DIR}/argocd-pf.pid"
           fi
 
-          # Start fresh pf and track PID/LOG under workspace
-          kubectl -n argocd port-forward svc/argocd-server ${ARGOCD_LOCAL_PORT}:80 \
+          # Forward HTTPS and use --insecure in argocd CLI (no interactive prompt)
+          kubectl -n argocd port-forward svc/argocd-server ${ARGOCD_LOCAL_PORT}:443 \
             >"${PF_DIR}/argocd-pf.log" 2>&1 & echo $! > "${PF_DIR}/argocd-pf.pid"
 
           # Wait for the socket to accept connections
@@ -152,10 +152,13 @@ pipeline {
           fi
 
           echo "== argocd login =="
-          argocd login "localhost:${ARGOCD_LOCAL_PORT}" --username admin --password "${ARGOCD_PWD}" --plaintext
+          argocd login "localhost:${ARGOCD_LOCAL_PORT}" \
+            --username admin --password "${ARGOCD_PWD}" \
+            --insecure
 
           echo "== Create/Upsert Argo CD Applications =="
           argocd app create spring-app --upsert \
+            --server "localhost:${ARGOCD_LOCAL_PORT}" --insecure \
             --repo ${SPRING_REPO} \
             --path charts/spring-app \
             --revision main \
@@ -164,6 +167,7 @@ pipeline {
             --helm-release-name spring-app
 
           argocd app create python-worker --upsert \
+            --server "localhost:${ARGOCD_LOCAL_PORT}" --insecure \
             --repo ${WORKER_REPO} \
             --path charts/python-worker \
             --revision main \
@@ -172,22 +176,22 @@ pipeline {
             --helm-release-name python-worker
 
           echo "== Set build image values on both apps =="
-          argocd app set spring-app \
+          argocd app set spring-app --server "localhost:${ARGOCD_LOCAL_PORT}" --insecure \
             --helm-set image.repository=${SPRING_IMAGE} \
             --helm-set image.tag=${APP_VERSION} \
             --helm-set image.pullPolicy=IfNotPresent
 
-          argocd app set python-worker \
+          argocd app set python-worker --server "localhost:${ARGOCD_LOCAL_PORT}" --insecure \
             --helm-set image.repository=${WORKER_IMAGE} \
             --helm-set image.tag=${APP_VERSION} \
             --helm-set image.pullPolicy=IfNotPresent
 
           echo "== Sync and wait healthy =="
-          argocd app sync spring-app --prune
-          argocd app sync python-worker --prune
+          argocd app sync spring-app --server "localhost:${ARGOCD_LOCAL_PORT}" --insecure --prune
+          argocd app sync python-worker --server "localhost:${ARGOCD_LOCAL_PORT}" --insecure --prune
 
-          argocd app wait spring-app --timeout 300 --health --sync
-          argocd app wait python-worker --timeout 300 --health --sync
+          argocd app wait spring-app --server "localhost:${ARGOCD_LOCAL_PORT}" --insecure --timeout 300 --health --sync
+          argocd app wait python-worker --server "localhost:${ARGOCD_LOCAL_PORT}" --insecure --timeout 300 --health --sync
 
           echo "== Deployed images =="
           kubectl -n ${K8S_NAMESPACE} get deploy spring-app -o jsonpath='{.spec.template.spec.containers[0].image}'; echo
@@ -200,7 +204,7 @@ pipeline {
             set -e
             # stop only OUR port-forward (by recorded PID)
             if [ -f "${PF_DIR}/argocd-pf.pid" ]; then
-              kill "$(cat "${PF_DIR}/argocd-pf.pid")" 2>/dev/null || true
+              kill "$(cat "${PF_DIR}/argocd-pf.pid}")" 2>/dev/null || true
             fi
             echo "---- argocd port-forward log (tail) ----"
             tail -n 100 "${PF_DIR}/argocd-pf.log" 2>/dev/null || true
@@ -225,7 +229,7 @@ pipeline {
           echo "Kubeconfig missing; skipping post-run kubectl."
         fi
       '''
-      //cleanWs() // cleanup LAST, after kubectl
+      // cleanWs() // run last if you want, after all kubectl calls
     }
     failure {
       sh '''#!/usr/bin/env bash
