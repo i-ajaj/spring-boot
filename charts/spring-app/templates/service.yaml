@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: spring-app
+  labels:
+    app: spring-app
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: spring-app
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.port }}
+      protocol: TCP
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePort }}
+      nodePort: {{ .Values.service.nodePort }}
+      {{- end }}

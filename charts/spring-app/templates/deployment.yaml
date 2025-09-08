@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-app
+  labels:
+    app: spring-app
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: spring-app
+  template:
+    metadata:
+      labels:
+        app: spring-app
+    spec:
+      {{- if .Values.waitForDeps.enabled }}
+      initContainers:
+        - name: wait-for-deps
+          image: {{ .Values.waitForDeps.image }}
+          command:
+            - sh
+            - -c
+            - {{ .Values.waitForDeps.command | quote }}
+      {{- end }}
+      containers:
+        - name: spring-app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+          env:
+            {{- range .Values.env }}
+            - name: {{ .name }}
+              value: "{{ .value }}"
+            {{- end }}
+          {{- if .Values.probes.liveness.enabled }}
+          livenessProbe:
+            tcpSocket: { port: {{ .Values.service.port }} }
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          {{- end }}
+          {{- if .Values.probes.readiness.enabled }}
+          readinessProbe:
+            tcpSocket: { port: {{ .Values.service.port }} }
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

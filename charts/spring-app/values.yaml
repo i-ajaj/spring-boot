@@ -1,0 +1,67 @@
+replicaCount: 1
+
+image:
+  repository: spring-boot-app
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+service:
+  type: NodePort          # change to NodePort if you want host access
+  port: 8080
+  nodePort: 30081          # e.g., 30081 if service.type=NodePort
+containerPort: 8080
+
+# match your current env
+env:
+  - name: SPRING_PROFILES_ACTIVE
+    value: "default"
+  - name: SPRING_DATASOURCE_URL
+    value: "jdbc:postgresql://postgres:5432/tasks"
+  - name: SPRING_DATASOURCE_USERNAME
+    value: "postgres"
+  - name: SPRING_DATASOURCE_PASSWORD
+    value: "password1"
+  - name: SPRING_RABBITMQ_HOST
+    value: "rabbitmq"
+  - name: SPRING_RABBITMQ_PORT
+    value: "5672"
+  - name: SPRING_RABBITMQ_USERNAME
+    value: "guest"
+  - name: SPRING_RABBITMQ_PASSWORD
+    value: "guest"
+
+# init container waits for postgres:5432 and rabbitmq:5672
+waitForDeps:
+  enabled: true
+  image: busybox:1.36
+  command: |
+    sh -c '
+    echo "Waiting for Postgres:5432 and RabbitMQ:5672...";
+    until nc -z postgres 5432; do sleep 2; done;
+    until nc -z rabbitmq 5672; do sleep 2; done;
+    echo "All deps up."
+    '
+
+# probes – match your tcp checks
+probes:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 40
+    timeoutSeconds: 1
+    periodSeconds: 10
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    initialDelaySeconds: 20
+    timeoutSeconds: 1
+    periodSeconds: 5
+    failureThreshold: 3
+
+# schedule on your nodes
+nodeSelector:
+  pool: general
+  role: spring-app
+
+resources: {}
+tolerations: []
+affinity: {}
