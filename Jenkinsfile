@@ -24,6 +24,7 @@ pipeline {
     stage('Cloning Repos') {
       steps {
         script {
+          cleanWs()
           def isManual = currentBuild.getBuildCauses().any { it.toString().contains("UserIdCause") }
           echo isManual ? "Manual build detected — cloning both repos" : "Webhook triggered by repo: ${env.REPO_NAME}"
 
@@ -224,7 +225,7 @@ pipeline {
           echo "Kubeconfig missing; skipping post-run kubectl."
         fi
       '''
-      cleanWs() // cleanup LAST, after kubectl
+      //cleanWs() // cleanup LAST, after kubectl
     }
     failure {
       sh '''#!/usr/bin/env bash
