@@ -157,14 +157,14 @@ pipeline {
             --insecure
 
           echo "== Create/Upsert Argo CD Applications =="
+          # NOTE: No --helm-release-name (deprecated/removed). Release name defaults to app name.
           argocd app create spring-app --upsert \
             --server "localhost:${ARGOCD_LOCAL_PORT}" --insecure \
             --repo ${SPRING_REPO} \
             --path charts/spring-app \
             --revision main \
             --dest-namespace ${K8S_NAMESPACE} \
-            --dest-server https://kubernetes.default.svc \
-            --helm-release-name spring-app
+            --dest-server https://kubernetes.default.svc
 
           argocd app create python-worker --upsert \
             --server "localhost:${ARGOCD_LOCAL_PORT}" --insecure \
@@ -172,8 +172,7 @@ pipeline {
             --path charts/python-worker \
             --revision main \
             --dest-namespace ${K8S_NAMESPACE} \
-            --dest-server https://kubernetes.default.svc \
-            --helm-release-name python-worker
+            --dest-server https://kubernetes.default.svc
 
           echo "== Set build image values on both apps =="
           argocd app set spring-app --server "localhost:${ARGOCD_LOCAL_PORT}" --insecure \
@@ -204,7 +203,8 @@ pipeline {
             set -e
             # stop only OUR port-forward (by recorded PID)
             if [ -f "${PF_DIR}/argocd-pf.pid" ]; then
-              kill "$(cat "${PF_DIR}/argocd-pf.pid}")" 2>/dev/null || true
+              kill "$(cat "${PF_DIR}/argocd-pf.pid")" 2>/dev/null || true
+              rm -f "${PF_DIR}/argocd-pf.pid"
             fi
             echo "---- argocd port-forward log (tail) ----"
             tail -n 100 "${PF_DIR}/argocd-pf.log" 2>/dev/null || true
@@ -229,7 +229,7 @@ pipeline {
           echo "Kubeconfig missing; skipping post-run kubectl."
         fi
       '''
-      // cleanWs() // run last if you want, after all kubectl calls
+      // cleanWs() // optional: run last if you want after all kubectl calls
     }
     failure {
       sh '''#!/usr/bin/env bash
